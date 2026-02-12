@@ -19,11 +19,19 @@
             return basePath;
         }
         
-        // Handle http:// and https:// protocols (GitHub Pages: /repo-name/... or user site /accessibility/...)
+        // Handle http:// and https:// protocols (GitHub Pages: /repo-name/ or /repo-name/accessibility/...)
         const path = pathname;
         const pathParts = path.split('/').filter(p => p && !p.endsWith('.html'));
-        // Project site: /repo-name/accessibility/ -> depth 1 (one level below repo). User site: /accessibility/ -> depth 1.
-        const depth = pathParts.length <= 1 ? (pathParts.length === 0 ? 0 : 1) : Math.max(0, pathParts.length - 1);
+        let depth;
+        if (pathParts.length === 0) {
+            depth = 0;
+        } else if (pathParts.length === 1) {
+            // One segment: /repo-name/ or /repo-name/index.html = site root (depth 0). /accessibility/guide.html = depth 1.
+            const atRoot = pathname.endsWith('/') || pathname.endsWith('index.html');
+            depth = atRoot ? 0 : 1;
+        } else {
+            depth = Math.max(0, pathParts.length - 1);
+        }
         const basePath = depth > 0 ? '../'.repeat(depth) : '';
         console.log('Calculated basePath:', basePath || '(root)', 'from pathname:', pathname, 'pathParts:', pathParts);
         return basePath;
