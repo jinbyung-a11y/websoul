@@ -17,9 +17,10 @@ function initMainJS() {
     const navMenuWrapper = navMenu ? navMenu.closest('.nav-menu-wrapper') : null;
     const header = document.getElementById('header');
     
-    // Check if header elements exist
+    // Header is required for menu and scroll behavior
     if (!header) {
-        console.warn('Header not found, main.js initialization may fail');
+        console.warn('Header not found, main.js initialization skipped');
+        return;
     }
     if (!mobileMenuToggle) {
         console.warn('Mobile menu toggle not found');
@@ -487,30 +488,31 @@ function initMainJS() {
     console.log('main.js initialization completed');
 }
 
+// Listen for header-loaded event from component-loader (reliable init after dynamic header)
+document.addEventListener('header-loaded', function() {
+    if (!mainJSInitialized && document.getElementById('header')) {
+        console.log('header-loaded event: initializing main.js');
+        initMainJS();
+    }
+});
+
 // Auto-initialize only if header is already in DOM (not loaded dynamically)
 // Otherwise, component-loader.js will call initMainJS after components are loaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-        // Wait a bit for components to load
         setTimeout(function() {
             const header = document.getElementById('header');
-            // Only auto-initialize if header exists and is not a placeholder
-            if (header && !header.querySelector('#header-placeholder')) {
+            if (header && !header.querySelector('#header-placeholder') && !mainJSInitialized) {
                 console.log('Header found in DOM, initializing main.js');
                 initMainJS();
-            } else {
-                console.log('Header not found or is placeholder, waiting for component-loader.js');
             }
-        }, 200);
+        }, 300);
     });
 } else {
-    // DOM already loaded, check if header exists
     const header = document.getElementById('header');
-    if (header && !header.querySelector('#header-placeholder')) {
+    if (header && !header.querySelector('#header-placeholder') && !mainJSInitialized) {
         console.log('Header found in DOM, initializing main.js');
         initMainJS();
-    } else {
-        console.log('Header not found or is placeholder, waiting for component-loader.js');
     }
 }
 

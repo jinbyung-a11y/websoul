@@ -9,26 +9,19 @@
         const href = window.location.href;
         const pathname = window.location.pathname;
         
-        // Handle file:// protocol
+        // Handle file:// protocol - path relative to current document's directory
         if (href.startsWith('file://')) {
-            const pathParts = pathname.split('/').filter(p => p);
-            // Remove the HTML filename if present
-            const htmlFileIndex = pathParts.findIndex(p => p.endsWith('.html'));
-            if (htmlFileIndex !== -1) {
-                pathParts.splice(htmlFileIndex);
-            }
-            // Calculate depth - if we're in a subfolder, we need to go up
-            // pathParts includes folder names, so depth = number of folders
-            const depth = pathParts.length;
-            return depth > 0 ? '../'.repeat(depth) : '';
+            // At project root (e.g. .../홈페이지리뉴얼/index.html) -> basePath ''
+            // In subfolder (e.g. .../accessibility/guide.html) -> basePath '../'
+            const atRoot = pathname.endsWith('index.html');
+            const basePath = atRoot ? '' : '../';
+            console.log('Calculated basePath (file):', basePath || '(root)', 'from pathname:', pathname);
+            return basePath;
         }
         
         // Handle http:// and https:// protocols
         const path = pathname;
-        // Split path and filter out empty strings and HTML files
         const pathParts = path.split('/').filter(p => p && !p.endsWith('.html'));
-        // Depth is the number of folders we're in (not subtracting 1)
-        // e.g., /accessibility/guidelines.html -> ['accessibility'] -> depth = 1 -> '../'
         const depth = pathParts.length;
         const basePath = depth > 0 ? '../'.repeat(depth) : '';
         console.log('Calculated basePath:', basePath, 'from pathname:', pathname, 'pathParts:', pathParts);
@@ -100,25 +93,31 @@
                     target.innerHTML = html;
                     console.log('Component HTML inserted:', componentPath);
                     
-                    // For header component, wait a bit for DOM to update
+                    // For header component, wait for DOM and dispatch event so main.js can init
                     if (targetSelector === '#header-placeholder') {
                         return new Promise((resolve) => {
-                            // Use MutationObserver to detect when header is actually in DOM
+                            const header = document.getElementById('header');
+                            if (header) {
+                                console.log('Header element detected in DOM');
+                                document.dispatchEvent(new CustomEvent('header-loaded'));
+                                setTimeout(() => resolve(true), 50);
+                                return;
+                            }
                             const observer = new MutationObserver((mutations, obs) => {
-                                const header = document.getElementById('header');
-                                if (header) {
+                                const headerEl = document.getElementById('header');
+                                if (headerEl) {
                                     console.log('Header element detected in DOM');
                                     obs.disconnect();
+                                    document.dispatchEvent(new CustomEvent('header-loaded'));
                                     setTimeout(() => resolve(true), 50);
                                 }
                             });
-                            
-                            // Start observing
                             observer.observe(target, { childList: true, subtree: true });
-                            
-                            // Fallback timeout
                             setTimeout(() => {
                                 observer.disconnect();
+                                if (document.getElementById('header')) {
+                                    document.dispatchEvent(new CustomEvent('header-loaded'));
+                                }
                                 resolve(true);
                             }, 500);
                         });
