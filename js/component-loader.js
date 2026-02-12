@@ -19,18 +19,19 @@
             return basePath;
         }
         
-        // Handle http:// and https:// protocols
+        // Handle http:// and https:// protocols (GitHub Pages: /repo-name/... or user site /accessibility/...)
         const path = pathname;
         const pathParts = path.split('/').filter(p => p && !p.endsWith('.html'));
-        const depth = pathParts.length;
+        // Project site: /repo-name/accessibility/ -> depth 1 (one level below repo). User site: /accessibility/ -> depth 1.
+        const depth = pathParts.length <= 1 ? (pathParts.length === 0 ? 0 : 1) : Math.max(0, pathParts.length - 1);
         const basePath = depth > 0 ? '../'.repeat(depth) : '';
-        console.log('Calculated basePath:', basePath, 'from pathname:', pathname, 'pathParts:', pathParts);
+        console.log('Calculated basePath:', basePath || '(root)', 'from pathname:', pathname, 'pathParts:', pathParts);
         return basePath;
     }
 
-    // Update all links with data-base-path attribute
+    // Update all links and images with data-base-path attribute
     function updateBasePaths(basePath) {
-        const links = document.querySelectorAll('[data-base-path]');
+        const links = document.querySelectorAll('a[data-base-path]');
         links.forEach(link => {
             const href = link.getAttribute('href');
             if (href && !href.startsWith('http') && !href.startsWith('#')) {
@@ -69,15 +70,30 @@
                 console.log('Updated link:', originalHref, '->', newHref, '(basePath:', basePath + ')');
             }
         });
+
+        document.querySelectorAll('img[data-base-path]').forEach(img => {
+            const src = img.getAttribute('src');
+            if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+                let originalSrc = img.getAttribute('data-original-src') || src;
+                if (!img.getAttribute('data-original-src')) {
+                    img.setAttribute('data-original-src', originalSrc);
+                }
+                let cleanSrc = originalSrc.replace(/^(\.\.\/)+/, '');
+                let newSrc = basePath ? basePath + cleanSrc : cleanSrc;
+                img.setAttribute('src', newSrc);
+            }
+        });
     }
 
     // Load component HTML
     function loadComponent(componentPath, targetSelector) {
-        // Convert relative path to absolute if using file:// protocol
+        // Resolve to absolute URL so fetch works on all hosts (incl. GitHub Pages)
         let absolutePath = componentPath;
         if (window.location.protocol === 'file:') {
-            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
-            absolutePath = new URL(componentPath, baseUrl + '/').href;
+            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+            absolutePath = new URL(componentPath, baseUrl).href;
+        } else {
+            absolutePath = new URL(componentPath, window.location.href).href;
         }
         
         return fetch(absolutePath)
@@ -131,7 +147,7 @@
             })
             .catch(error => {
                 console.error('Error loading component:', componentPath, error);
-                console.error('Attempted path:', absolutePath);
+                console.error('Attempted URL:', absolutePath);
                 return false;
             });
     }
